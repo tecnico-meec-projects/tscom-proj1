@@ -27,11 +27,8 @@ void UltrasonicSensor::update()
   }
 
   if (pulseDone) {
-    noInterrupts();
     unsigned long duration = pulseEnd - pulseStart;
     pulseDone = false;
-    interrupts();
-
     distance = (duration * 0.0343f) / 2.0f; // cm
   }
 }
