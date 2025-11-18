@@ -1,27 +1,33 @@
+#include <Arduino.h>
+#include <ArduinoBLE.h>
+
 #include "UltrasonicSensor.hpp"
 #include "imu.hpp"
-#include <Arduino.h>
+#include "BleSensorService.hpp"
 
-//Pins
+// Pins
 static constexpr uint8_t trigPin = 2;
 static constexpr uint8_t echoPin = 3;
 
 UltrasonicSensor echoSensor(trigPin, echoPin);
 
-//imu instance
+// IMU instance
 IMU imu;
 
-// Timer
+// BLE service
+BleSensorService bleService;
+
+
 unsigned long lastPrint = 0;
 
 void setup()
 {
   Serial.begin(115200);
-  delay(2000); 
-
+  delay(2000);
 
   echoSensor.begin();
 
+  // IMU
   if (!imu.begin())
   {
     Serial.println("IMU FAILED TO INIT!");
@@ -32,29 +38,42 @@ void setup()
     Serial.println("IMU OK");
   }
 
+  // BLE
+  if (!bleService.begin("Nano33BLE-Sensor"))
+  {
+    Serial.println("BLE FAILED TO INIT!");
+    while (1);
+  }
+  else
+  {
+    Serial.println("BLE READY, ADVERTISING...");
+  }
+
   lastPrint = millis();
 }
 
 void loop()
 {
+
   echoSensor.update();
 
-  // read IMU data
-  float ax, ay, az;
-  float gx, gy, gz;
 
-  imu.readAcceleration(); // updates internal accelX/Y/Z
+  imu.readAcceleration();
 
-  ax = imu.getAccelX_mg() / 1000.0f;
-  ay = imu.getAccelY_mg() / 1000.0f;
-  az = imu.getAccelZ_mg() / 1000.0f;
+  float ax = imu.getAccelX_mg() / 1000.0f; // g
+  float ay = imu.getAccelY_mg() / 1000.0f; // g
+  float az = imu.getAccelZ_mg() / 1000.0f; // g
+
+  float distance = echoSensor.getDistance(); // cm
+
+
+  bleService.update(distance, ax, ay, az);
 
 
   if (millis() - lastPrint > 200)
   {
-
     Serial.print("Distance: ");
-    Serial.print(echoSensor.getDistance());
+    Serial.print(distance);
     Serial.println(" cm");
 
     Serial.print("Accel (g):  ");
@@ -62,12 +81,6 @@ void loop()
     Serial.print(ay, 3); Serial.print(", ");
     Serial.println(az, 3);
 
-    
-    Serial.print("Gyro (dps): ");
-    Serial.print(gx, 3); Serial.print(", ");
-    Serial.print(gy, 3); Serial.print(", ");
-    Serial.println(gz, 3);
-    
     Serial.println("---------------------");
 
     lastPrint = millis();
