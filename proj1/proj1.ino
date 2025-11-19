@@ -4,6 +4,7 @@
 #include "UltrasonicSensor.hpp"
 #include "imu.hpp"
 #include "BleSensorService.hpp"
+#include "Pedometer.hpp"
 
 // Pins
 static constexpr uint8_t trigPin = 2;
@@ -17,8 +18,17 @@ IMU imu;
 // BLE service
 BleSensorService bleService;
 
+// Pedometer (classe com o algoritmo da ADI)
+Pedometer pedometer;
 
-unsigned long lastPrint = 0;
+// Timers
+unsigned long lastPrint      = 0;
+unsigned long lastStepUpdate = 0;
+
+// Última aceleração lida (mg)
+int16_t lastAx_mg = 0;
+int16_t lastAy_mg = 0;
+int16_t lastAz_mg = 0;
 
 void setup()
 {
@@ -49,40 +59,62 @@ void setup()
     Serial.println("BLE READY, ADVERTISING...");
   }
 
-  lastPrint = millis();
+  pedometer.reset();
+
+  lastPrint      = millis();
+  lastStepUpdate = millis();
 }
 
 void loop()
 {
+  unsigned long now = millis();
 
   echoSensor.update();
 
+  // ================= PEDÓMETRO A ~50 Hz (ODR do algoritmo) =================
+  if (now - lastStepUpdate >= 20)   // 20 ms ≈ 50 Hz
+  {
+    lastStepUpdate += 20;
 
-  imu.readAcceleration();
+    // Ler acelerómetro
+    imu.readAcceleration();
 
-  float ax = imu.getAccelX_mg() / 1000.0f; // g
-  float ay = imu.getAccelY_mg() / 1000.0f; // g
-  float az = imu.getAccelZ_mg() / 1000.0f; // g
+    lastAx_mg = imu.getAccelX_mg();
+    lastAy_mg = imu.getAccelY_mg();
+    lastAz_mg = imu.getAccelZ_mg();
 
+    // Atualizar o algoritmo de passos
+    pedometer.update(lastAx_mg, lastAy_mg, lastAz_mg);
+  }
+
+  // ================= DISTÂNCIA + BLE =================
   float distance = echoSensor.getDistance(); // cm
 
+  // Converter mg → g só para debug / BLE
+  float ax_g = lastAx_mg / 1000.0f;
+  float ay_g = lastAy_mg / 1000.0f;
+  float az_g = lastAz_mg / 1000.0f;
 
-  bleService.update(distance, ax, ay, az);
+  // Aqui continuas a usar o teu serviço BLE como antes
+  bleService.update(distance, ax_g, ay_g, az_g);
 
-
-  if (millis() - lastPrint > 200)
+  // ================= DEBUG SERIAL =================
+  if (now - lastPrint > 200)
   {
     Serial.print("Distance: ");
     Serial.print(distance);
     Serial.println(" cm");
 
     Serial.print("Accel (g):  ");
-    Serial.print(ax, 3); Serial.print(", ");
-    Serial.print(ay, 3); Serial.print(", ");
-    Serial.println(az, 3);
+    Serial.print(ax_g, 3); Serial.print(", ");
+    Serial.print(ay_g, 3); Serial.print(", ");
+    Serial.println(az_g, 3);
+
+    Serial.print("Steps: ");
+    Serial.println(pedometer.getStepCount());
 
     Serial.println("---------------------");
 
-    lastPrint = millis();
+    lastPrint = now;
   }
 }
