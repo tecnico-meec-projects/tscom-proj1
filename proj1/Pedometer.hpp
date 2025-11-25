@@ -16,6 +16,9 @@
 #define PEDO_ONE_SECOND        50
 #define PEDO_REG_OFF_TIME      (PEDO_ONE_SECOND * 2)   // 2 s sem passos → reset
 
+// Constante para calcular comprimento do passo (em metros)
+#define PEDO_DISTANCE_K        0.00025f  // Ajustar empiricamente
+
 class Pedometer
 {
 public:
@@ -29,6 +32,15 @@ public:
 
   /// Ler o número total de passos detetados
   uint32_t getStepCount() const;
+
+  /// Ler comprimento do último passo (m)
+  float getLastStrideLength() const;
+
+  /// Ler distância total percorrida (m)
+  float getTotalDistance() const;
+
+  /// Ler comprimento médio do passo (m/step)
+  float getAverageStepLength() const;
 
 private:
   // Buffers internos (iguais à implementação da ADI)
@@ -48,6 +60,13 @@ private:
   uint32_t LastMax, LastMin, WindowMin, WindowMax;
   uint32_t FilterMeanBuffer, FilterModuleData, ModuleData;
   uint32_t Difference, BufferDinamicThreshold, NewThreshold, old_threshold;
+
+  // ----------- NOVO: Variáveis para cálculo de distância -----------
+  int32_t lastStrideAmax;
+  int32_t lastStrideAmin;
+
+  float strideLength;   // comprimento do último passo (m)
+  float totalDistance;  // distância total acumulada (m)
 };
 
 #endif // PEDOMETER_HPP

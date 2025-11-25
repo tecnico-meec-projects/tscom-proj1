@@ -87,7 +87,7 @@ void loop()
     pedometer.update(lastAx_mg, lastAy_mg, lastAz_mg);
   }
 
-  // ================= DISTÂNCIA + BLE =================
+  // ================= DISTÂNCIA ULTRASSÔNICA =================
   float distance = echoSensor.getDistance(); // cm
 
   // Converter mg → g só para debug / BLE
@@ -95,15 +95,20 @@ void loop()
   float ay_g = lastAy_mg / 1000.0f;
   float az_g = lastAz_mg / 1000.0f;
 
-  // Aqui continuas a usar o teu serviço BLE como antes
+  // ================= BLE UPDATE =================
+  // Exemplo de atualização do serviço BLE com passos e distância
+  float strideLength   = pedometer.getLastStrideLength();     // m
+  float totalDistance  = pedometer.getTotalDistance();        // m
+  float avgStepLength  = pedometer.getAverageStepLength();    // m/step
+  uint32_t stepCount   = pedometer.getStepCount();
+
   bleService.update(distance, ax_g, ay_g, az_g);
 
   // ================= DEBUG SERIAL =================
   if (now - lastPrint > 200)
   {
-    Serial.print("Distance: ");
-    Serial.print(distance);
-    Serial.println(" cm");
+    Serial.print("Distance (cm): ");
+    Serial.println(distance);
 
     Serial.print("Accel (g):  ");
     Serial.print(ax_g, 3); Serial.print(", ");
@@ -111,7 +116,16 @@ void loop()
     Serial.println(az_g, 3);
 
     Serial.print("Steps: ");
-    Serial.println(pedometer.getStepCount());
+    Serial.println(stepCount);
+
+    Serial.print("Last stride length (m): ");
+    Serial.println(strideLength, 3);
+
+    Serial.print("Average step length (m): ");
+    Serial.println(avgStepLength, 3);
+
+    Serial.print("Total distance (m): ");
+    Serial.println(totalDistance, 3);
 
     Serial.println("---------------------");
 
