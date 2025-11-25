@@ -62,36 +62,36 @@ void InertialSpeedEstimator::finishCalibration()
 
 void InertialSpeedEstimator::update(int16_t ax_mg, int16_t ay_mg, int16_t az_mg)
 {
-    // Converte para m/s²
+    // Convert to m/s squared
     float ax = ax_mg * MG_TO_MPS2;
     float ay = ay_mg * MG_TO_MPS2;
     float az = az_mg * MG_TO_MPS2;
 
-    // Módulo da aceleração total
+  
     float mag = sqrtf(ax*ax + ay*ay + az*az);
 
-    // Low-pass no módulo
+
     a_mag_filt = ALPHA_MAG * mag + (1.0f - ALPHA_MAG) * a_mag_filt;
 
     float g_used = calibrated ? g_est : DEFAULT_G;
 
-    // Aproximação de aceleração linear = excesso acima da gravidade
+
     float a_lin = a_mag_filt - g_used;
 
-    // Ruído pequeno → 0
+
     if (fabsf(a_lin) < NOISE_FLOOR)
         a_lin = 0.0f;
 
-    // Integração simples v = v + a * Ts (apenas positiva, assumindo movimento para a frente)
+
     if (a_lin > 0.0f)
         speed_mps += a_lin * Ts;
 
-    // Travão numérico para parar gradualmente quando a_lin ~ 0
+
     speed_mps *= DAMPING;
 
-    // Limitações razoáveis
+
     if (speed_mps < 0.0f) speed_mps = 0.0f;
-    if (speed_mps > 10.0f) speed_mps = 10.0f; // ~36 km/h
+    if (speed_mps > 10.0f) speed_mps = 10.0f;
 }
 
 float InertialSpeedEstimator::getSpeedMps() const
