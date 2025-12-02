@@ -1,3 +1,4 @@
+// ======================== BleSensorService.hpp ========================
 #pragma once
 
 #include <Arduino.h>
@@ -8,24 +9,21 @@ class BleSensorService
 public:
   BleSensorService();
 
-
   bool begin(const char* deviceName);
 
 
-  void update(float distance_cm, float ax_g, float ay_g, float az_g);
+  void update(float distance_cm, uint32_t stepCount, float stepLength_m,
+              bool shakeDetected, bool wallWarning);
 
 private:
-  // Service 1: distance + Ax
-  BLEService serviceDistAx;
+  // Single service for all sensor data
+  BLEService sensorService;
 
-  // Service 2: Ay + Az
-  BLEService serviceAyAz;
-
-
-  BLEStringCharacteristic distanceChar; // serviceDistAx
-  BLEStringCharacteristic accelXChar;   // serviceDistAx
-  BLEStringCharacteristic accelYChar;   // serviceAyAz
-  BLEStringCharacteristic accelZChar;   // serviceAyAz
+  // Characteristics
+  BLEStringCharacteristic distanceChar;      // Ultrasonic distance (cm)
+  BLEStringCharacteristic stepCountChar;     // Total steps
+  BLEStringCharacteristic stepLengthChar;    // Last stride length (m)
+  BLEStringCharacteristic statusChar;        // Status flags (shake/wall)
 
   unsigned long lastBleUpdate = 0;
   static constexpr unsigned long bleUpdateInterval = 100; // ms

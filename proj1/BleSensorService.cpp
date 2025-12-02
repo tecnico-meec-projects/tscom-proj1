@@ -1,20 +1,20 @@
+
 #include "BleSensorService.hpp"
 
 BleSensorService::BleSensorService()
-  : serviceDistAx("19B10000-E8F2-537E-4F6C-D104768A1214"),
-    serviceAyAz ("19B20000-E8F2-537E-4F6C-D104768A1214"),
-
-    // Service 1: distance + Ax  
+  : sensorService("19B10000-E8F2-537E-4F6C-D104768A1214"),
+    
     distanceChar("19B10001-E8F2-537E-4F6C-D104768A1214",
                  BLERead | BLENotify, 16),
-    accelXChar ("19B10002-E8F2-537E-4F6C-D104768A1214",
-                 BLERead | BLENotify, 16),
-
-    // Service 2: Ay + Az  
-    accelYChar ("19B20001-E8F2-537E-4F6C-D104768A1214",
-                 BLERead | BLENotify, 16),
-    accelZChar ("19B20002-E8F2-537E-4F6C-D104768A1214",
-                 BLERead | BLENotify, 16)
+    
+    stepCountChar("19B10002-E8F2-537E-4F6C-D104768A1214",
+                  BLERead | BLENotify, 16),
+    
+    stepLengthChar("19B10003-E8F2-537E-4F6C-D104768A1214",
+                   BLERead | BLENotify, 16),
+    
+    statusChar("19B10004-E8F2-537E-4F6C-D104768A1214",
+               BLERead | BLENotify, 32)
 {
 }
 
@@ -29,33 +29,34 @@ bool BleSensorService::begin(const char* deviceName)
   BLE.setLocalName(deviceName);
   BLE.setDeviceName(deviceName);
 
+  // Add all characteristics to the service
+  sensorService.addCharacteristic(distanceChar);
+  sensorService.addCharacteristic(stepCountChar);
+  sensorService.addCharacteristic(stepLengthChar);
+  sensorService.addCharacteristic(statusChar);
 
-  serviceDistAx.addCharacteristic(distanceChar);
-  serviceDistAx.addCharacteristic(accelXChar);
-
-
-  serviceAyAz.addCharacteristic(accelYChar);
-  serviceAyAz.addCharacteristic(accelZChar);
-
-
+  // Initialize values
   distanceChar.writeValue("0.0");
-  accelXChar.writeValue("0.0");
-  accelYChar.writeValue("0.0");
-  accelZChar.writeValue("0.0");
+  stepCountChar.writeValue("0");
+  stepLengthChar.writeValue("0.0");
+  statusChar.writeValue("NORMAL");
 
-
-  BLE.addService(serviceDistAx);
-  BLE.addService(serviceAyAz);
-
-
-  BLE.setAdvertisedService(serviceDistAx);
+  // Add service and start advertising
+  BLE.addService(sensorService);
+  BLE.setAdvertisedService(sensorService);
   BLE.advertise();
 
-  Serial.println("BLE services started (Dist+Ax) e (Ay+Az) [STRING]");
+  Serial.println("BLE service started with characteristics:");
+  Serial.println("  - Distance (cm)");
+  Serial.println("  - Step Count");
+  Serial.println("  - Step Length (m)");
+  Serial.println("  - Status (shake/wall warnings)");
+  
   return true;
 }
 
-void BleSensorService::update(float distance_cm, float ax_g, float ay_g, float az_g)
+void BleSensorService::update(float distance_cm, uint32_t stepCount, float stepLength_m,
+                              bool shakeDetected, bool wallWarning)
 {
   BLE.poll();
 
@@ -65,17 +66,25 @@ void BleSensorService::update(float distance_cm, float ax_g, float ay_g, float a
 
   lastBleUpdate = now;
 
+  // Convert numeric values to strings
+  String distStr   = String(distance_cm, 2);   // 2 decimal places
+  String countStr  = String(stepCount);         // Integer
+  String lengthStr = String(stepLength_m, 3);  // 3 decimal places
 
-  String dStr  = String(distance_cm, 2);
-  String axStr = String(ax_g,        3);
-  String ayStr = String(ay_g,        3);
-  String azStr = String(az_g,        3);
+  // Build status string
+  String statusStr = "";
+  if (shakeDetected && wallWarning)
+    statusStr = "SHAKE+WALL";
+  else if (shakeDetected)
+    statusStr = "SHAKING";
+  else if (wallWarning)
+    statusStr = "WALL_NEAR";
+  else
+    statusStr = "NORMAL";
 
-  // Service 1
-  distanceChar.writeValue(dStr);
-  accelXChar.writeValue(axStr);
-
-  // Service 2
-  accelYChar.writeValue(ayStr);
-  accelZChar.writeValue(azStr);
+  // Update all characteristics
+  distanceChar.writeValue(distStr);
+  stepCountChar.writeValue(countStr);
+  stepLengthChar.writeValue(lengthStr);
+  statusChar.writeValue(statusStr);
 }
